@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Mi Dinero</title>
+  <meta name="description" content="Administra tu dinero con bolsillos y porcentajes.">
+
+  <!-- App instalable (PWA) -->
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="theme-color" content="#f4f5f7" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0b0d10" media="(prefers-color-scheme: dark)">
+
+  <!-- iPhone: pantalla completa al abrir desde el inicio -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Mi Dinero">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="icon" type="image/png" href="icons/icon-192.png">
+
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="app">
+    <header class="topbar">
+      <h1 id="title">Mi Dinero</h1>
+      <div class="cur-wrap">
+        <div class="seg" id="curSeg" role="group" aria-label="Moneda">
+          <button type="button" data-action="currency" data-cur="MXN">MXN</button>
+          <button type="button" data-action="currency" data-cur="USD">USD</button>
+        </div>
+        <small id="fxMini"></small>
+      </div>
+    </header>
+
+    <main id="view"></main>
+
+    <nav class="tabbar" id="tabbar">
+      <button type="button" data-action="tab" data-tab="home"><span class="ti">🏠</span><span>Inicio</span></button>
+      <button type="button" data-action="tab" data-tab="history"><span class="ti">🧾</span><span>Movimientos</span></button>
+      <button type="button" data-action="tab" data-tab="invest"><span class="ti">📊</span><span>Inversiones</span></button>
+      <button type="button" data-action="tab" data-tab="settings"><span class="ti">⚙️</span><span>Ajustes</span></button>
+    </nav>
+  </div>
+
+  <div id="sheet-root"></div>
+  <div id="toast" role="status" aria-live="polite"></div>
+  <input type="file" id="importFile" accept="application/json,.json" hidden>
+
+  <script src="app.js"></script>
+</body>
+</html>
