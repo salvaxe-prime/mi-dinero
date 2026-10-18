@@ -1,15 +1,15 @@
 // Service worker: guarda la app en el celular para que abra rápido y funcione sin internet.
 // Cuando cambies cualquier archivo de la app, sube el número de CACHE para que se actualice.
-const CACHE = 'mi-dinero-v2';
+const CACHE = 'mi-dinero-v3';
 const ASSETS = [
   './',
   './index.html',
   './styles.css',
   './app.js',
   './manifest.webmanifest',
-  './icons/icon-192.png',
-  './icons/icon-512.png',
-  './icons/apple-touch-icon.png',
+  './icon-192.png',
+  './icon-512.png',
+  './apple-touch-icon.png',
 ];
 
 self.addEventListener('install', (event) => {
