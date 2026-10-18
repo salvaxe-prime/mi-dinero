@@ -197,7 +197,7 @@ main {
 .banner .link { align-self: flex-start; }
 
 /* ---------- Formularios ---------- */
-form { display: flex; flex-direction: column; gap: 14px; }
+form, .stack { display: flex; flex-direction: column; gap: 14px; }
 .field { display: flex; flex-direction: column; gap: 6px; }
 .field > span { font-size: 13px; font-weight: 600; color: var(--muted); }
 .field input, .field select, .money-input {

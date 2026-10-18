@@ -33,6 +33,7 @@ const TYPES = {
   interes:   { icon: '📈', label: 'Rendimiento' },
   ajuste:    { icon: '⚖️', label: 'Ajuste' },
   redistrib: { icon: '🧮', label: 'Redistribución' },
+  saldos:    { icon: '✏️', label: 'Saldos ajustados' },
   inv:       { icon: '🏦', label: 'Inversión' },
   invint:    { icon: '📈', label: 'Rendimiento de inversión' },
 };
@@ -388,8 +389,9 @@ function applyBucketEditor(vals) {
 
 function subFor(e) {
   switch (e.type) {
-    case 'ingreso':
-    case 'inicial': return 'Repartido en tus bolsillos';
+    case 'ingreso': return 'Repartido en tus bolsillos';
+    case 'inicial': return e.manual ? 'Cada bolsillo con su saldo' : 'Repartido en tus bolsillos';
+    case 'saldos': return 'Saldos corregidos a mano';
     case 'redistrib': return 'Saldo reacomodado con tus %';
     case 'transfer': return `${bucketName(e.from)} → ${bucketName(e.to)}`;
     case 'inv':
@@ -400,7 +402,7 @@ function subFor(e) {
 
 function itemHTML(e, showDate = false) {
   const t = TYPES[e.type] || TYPES.ajuste;
-  const neutral = e.type === 'transfer' || e.type === 'redistrib';
+  const neutral = e.type === 'transfer' || e.type === 'redistrib' || e.type === 'saldos';
   const cls = neutral ? 'neutral' : e.amount < 0 ? 'neg' : 'pos';
   const d = new Date(e.ts);
   const time = d.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
@@ -440,9 +442,19 @@ function viewSetup() {
       ${bucketEditor()}
       <div>
         <h2 style="font-size:18px">2. ¿Con cuánto empiezas?</h2>
-        <p class="muted">Tu saldo actual (por ejemplo, lo que tienes en Revolut). Se reparte con tus porcentajes. Puedes dejarlo en 0.</p>
+        <p class="muted">Tu saldo actual (por ejemplo, lo que tienes en Revolut). Puedes repartirlo con tus porcentajes o, si ya lo tienes separado, poner cuánto hay en cada bolsillo. Puedes dejarlo en 0.</p>
       </div>
-      ${amountField('amount', 'Saldo inicial', '', { forceMXN: true })}
+      <div class="seg-radio">
+        <label><input type="radio" name="mode" value="split" checked><span>Repartir con mis %</span></label>
+        <label><input type="radio" name="mode" value="manual"><span>Yo pongo cada saldo</span></label>
+      </div>
+      <div class="stack" id="modeSplit">
+        ${amountField('amount', 'Saldo inicial total', '', { forceMXN: true })}
+      </div>
+      <div class="stack hidden" id="modeManual">
+        ${state.buckets.map((b) => amountField(`s_${b.id}`, `${BUCKETS[b.id].icon} <span data-name-for="${b.id}">${esc(b.name)}</span>`, '', { forceMXN: true })).join('')}
+        <p class="pct-total" id="manualTotal"></p>
+      </div>
       <div>
         <h2 style="font-size:18px">3. Rendimiento anual</h2>
         <p class="muted">Lo que te paga tu cuenta al año. Se calcula solo, cada día, sobre todo tu saldo, y se suma a Inversión.</p>
@@ -501,15 +513,15 @@ function viewHome() {
     </section>
 
     <section class="actions">
-      <button class="action" data-action="income"><span class="ai">💰</span><strong>Ingreso</strong><span>Se reparte ${pcts}</span></button>
-      <button class="action" data-action="direct"><span class="ai">🍽️</span><strong>Ingreso directo</strong><span>Comida · va a un bolsillo</span></button>
+      <button class="action" data-action="add"><span class="ai">💰</span><strong>Agregar dinero</strong><span>Se reparte ${pcts} o a un bolsillo</span></button>
+      <button class="action" data-action="editBalances"><span class="ai">✏️</span><strong>Ajustar saldos</strong><span>Corregir un bolsillo</span></button>
       <button class="action" data-action="expense"><span class="ai">🧾</span><strong>Gasto / Pago</strong><span>Resta de un bolsillo</span></button>
       <button class="action" data-action="transfer"><span class="ai">🔁</span><strong>Transferir</strong><span>Entre bolsillos</span></button>
     </section>
 
     <section style="display:flex;flex-direction:column;gap:10px">
       <div class="section-head"><h2>Recientes</h2>${state.history.length > 5 ? '<button class="link" data-action="tab" data-tab="history">Ver todo</button>' : ''}</div>
-      ${recent.length ? `<div class="list">${recent.map((e) => itemHTML(e, true)).join('')}</div>` : '<div class="list"><p class="empty">Aún no hay movimientos.<br>Empieza registrando un ingreso.</p></div>'}
+      ${recent.length ? `<div class="list">${recent.map((e) => itemHTML(e, true)).join('')}</div>` : '<div class="list"><p class="empty">Aún no hay movimientos.<br>Empieza con "Agregar dinero".</p></div>'}
     </section>`;
 }
 
@@ -553,11 +565,12 @@ function viewSettings() {
     <form id="fBuckets" class="card">
       <div>
         <h2 style="font-size:18px">Bolsillos y porcentajes</h2>
-        <p class="muted">Nombre, porcentaje y un recordatorio de para qué es cada uno. Los nuevos % se aplican a los siguientes ingresos. Si quieres reacomodar lo que ya tienes, usa "Redistribuir".</p>
+        <p class="muted">Nombre, porcentaje y un recordatorio de para qué es cada uno. Los nuevos % solo se aplican a los siguientes ingresos; tus saldos actuales no cambian. Para corregir un saldo usa "Ajustar saldo de cada bolsillo".</p>
       </div>
       ${bucketEditor()}
       <button class="btn primary" type="submit">Guardar cambios</button>
-      <button class="btn" type="button" data-action="redistribute">🧮 Redistribuir mi saldo actual</button>
+      <button class="btn" type="button" data-action="editBalances">✏️ Ajustar saldo de cada bolsillo</button>
+      <button class="btn" type="button" data-action="redistribute">🧮 Redistribuir todo con estos %</button>
     </form>
 
     <form id="fRate" class="card">
@@ -616,6 +629,19 @@ function render() {
     view.innerHTML = viewSetup();
     const f = $('#fSetup');
     bindBucketEditor(f);
+    const upd = () => {
+      const manual = f.mode.value === 'manual';
+      $('#modeSplit').classList.toggle('hidden', manual);
+      $('#modeManual').classList.toggle('hidden', !manual);
+      for (const b of state.buckets) {
+        $(`[data-name-for="${b.id}"]`).textContent = f[`n_${b.id}`].value.trim() || b.name;
+      }
+      const sum = state.buckets.reduce((a, b) => a + (parseAmount(f[`s_${b.id}`].value, true) || 0), 0);
+      $('#manualTotal').innerHTML = `<span>Total</span><span>${money(sum)}</span>`;
+    };
+    f.addEventListener('input', upd);
+    f.addEventListener('change', upd);
+    upd();
     f.addEventListener('submit', onSetup);
     return;
   }
@@ -632,19 +658,33 @@ function onSetup(e) {
   if (r.error) return toast(r.error);
   const rate = Number(f.rate.value.replace(',', '.'));
   if (!Number.isFinite(rate) || rate < 0 || rate > 100) return toast('Escribe una tasa válida');
-  const raw = f.amount.value.trim();
-  const start = raw === '' ? 0 : parseAmount(raw, true);
-  if (start === null) return toast('Escribe un saldo válido');
+  // Saldo inicial: repartido con % o escrito bolsillo por bolsillo.
+  const deltas = {};
+  let start = 0;
+  if (f.mode.value === 'manual') {
+    for (const b of state.buckets) {
+      const raw = f[`s_${b.id}`].value.trim();
+      const c = raw === '' ? 0 : parseAmount(raw, true);
+      if (c === null) return toast(`Revisa el saldo de "${f[`n_${b.id}`].value.trim() || b.name}"`);
+      if (c) deltas[`b:${b.id}`] = c;
+      start += c;
+    }
+  } else {
+    const raw = f.amount.value.trim();
+    start = raw === '' ? 0 : parseAmount(raw, true);
+    if (start === null) return toast('Escribe un saldo válido');
+  }
 
   applyBucketEditor(r.vals);
   state.rate = rate;
   state.setup = true;
   state.lastInterest = dayKey();
   if (start > 0) {
-    const parts = splitByPct(start);
-    const deltas = {};
-    state.buckets.forEach((b, i) => { if (parts[i]) deltas[`b:${b.id}`] = parts[i]; });
-    record('inicial', 'Saldo inicial', deltas, start);
+    if (f.mode.value !== 'manual') {
+      const parts = splitByPct(start);
+      state.buckets.forEach((b, i) => { if (parts[i]) deltas[`b:${b.id}`] = parts[i]; });
+    }
+    record('inicial', 'Saldo inicial', deltas, start, { manual: f.mode.value === 'manual' });
   }
   save();
   tab = 'home';
@@ -724,55 +764,50 @@ function commit(msg) {
   if (msg) toast(msg);
 }
 
-function sheetIncome() {
-  openSheet('Ingreso variable', `
+// Agregar dinero: al total de la cartera (se reparte con los %) o directo a un bolsillo.
+function sheetAdd() {
+  openSheet('Agregar dinero', `
     <form id="f">
-      <p class="muted">Trabajos, tareas, comisiones, regalos… Se reparte automáticamente con tus porcentajes.</p>
       ${amountField('amount', 'Monto')}
-      ${textField('desc', 'Descripción (opcional)', 'Ej. Trabajo de diseño')}
+      <label class="field">
+        <span>¿A dónde lo agregas?</span>
+        <select name="dest">
+          <option value="">💼 Total de la cartera · ${state.buckets.map((b) => +b.pct).join('/')}</option>
+          ${state.buckets.map((b) => `<option value="${b.id}">${BUCKETS[b.id].icon} Solo a ${esc(b.name)}</option>`).join('')}
+        </select>
+      </label>
+      ${textField('desc', 'Descripción (opcional)', 'Ej. Trabajo, regalo, comida semanal…')}
       <div class="preview" id="preview"></div>
-      <button class="btn primary" type="submit">Repartir y guardar</button>
+      <button class="btn primary" type="submit">Agregar</button>
     </form>`, (sheet) => {
     const f = $('#f', sheet);
     const prev = $('#preview', sheet);
     const upd = () => {
-      const parts = splitByPct(parseAmount(f.amount.value) || 0);
+      const c = parseAmount(f.amount.value) || 0;
+      const dest = f.dest.value;
+      const parts = dest ? state.buckets.map((b) => (b.id === dest ? c : 0)) : splitByPct(c);
       prev.innerHTML = state.buckets.map((b, i) => `
-        <div class="prev-row"><span class="dot" style="background:${BUCKETS[b.id].color}"></span>
-        <span>${esc(b.name)} <em>${fmtPct(b.pct)}</em></span><strong class="num">${money(parts[i])}</strong></div>`).join('');
+        <div class="prev-row" style="${dest && b.id !== dest ? 'opacity:.4' : ''}"><span class="dot" style="background:${BUCKETS[b.id].color}"></span>
+        <span>${esc(b.name)} ${dest ? '' : `<em>${fmtPct(b.pct)}</em>`}</span><strong class="num">${parts[i] ? '+' : ''}${money(parts[i])}</strong></div>`).join('');
     };
-    f.amount.addEventListener('input', upd);
+    f.addEventListener('input', upd);
+    f.addEventListener('change', upd);
     upd();
     f.addEventListener('submit', (e) => {
       e.preventDefault();
       const c = parseAmount(f.amount.value);
       if (!c) return toast('Escribe un monto válido');
+      const dest = f.dest.value;
+      const desc = f.desc.value.trim();
+      if (dest) {
+        record('directo', desc || 'Dinero agregado', { [`b:${dest}`]: c }, c, { bucket: dest });
+        return commit(`Agregado a ${bucketName(dest)}`);
+      }
       const parts = splitByPct(c);
       const deltas = {};
       state.buckets.forEach((b, i) => { if (parts[i]) deltas[`b:${b.id}`] = parts[i]; });
-      record('ingreso', f.desc.value.trim() || 'Ingreso variable', deltas, c);
-      commit('Ingreso repartido en tus bolsillos');
-    });
-  });
-}
-
-function sheetDirect() {
-  openSheet('Ingreso directo', `
-    <form id="f">
-      <p class="muted">Dinero que va completo a un solo bolsillo, como tus $500 semanales de comida.</p>
-      ${amountField('amount', 'Monto', cur() === 'MXN' ? '500' : '')}
-      ${bucketSelect('bucket', 'Bolsillo', 'gastos')}
-      ${textField('desc', 'Descripción', '', 'Comida semanal')}
-      <button class="btn primary" type="submit">Guardar</button>
-    </form>`, (sheet) => {
-    const f = $('#f', sheet);
-    f.addEventListener('submit', (e) => {
-      e.preventDefault();
-      const c = parseAmount(f.amount.value);
-      if (!c) return toast('Escribe un monto válido');
-      const id = f.bucket.value;
-      record('directo', f.desc.value.trim() || 'Ingreso directo', { [`b:${id}`]: c }, c, { bucket: id });
-      commit(`Agregado a ${bucketName(id)}`);
+      record('ingreso', desc || 'Dinero agregado', deltas, c);
+      commit('Agregado y repartido en tus bolsillos');
     });
   });
 }
@@ -845,10 +880,58 @@ function sheetTransfer() {
   });
 }
 
+// Corrige el saldo de cada bolsillo a mano, sin repartir con porcentajes.
+function sheetEditBalances() {
+  const toInput = (cents) => {
+    let v = cents / 100;
+    if (cur() === 'USD') v = v / fxRate();
+    return (Math.round(v * 100) / 100).toFixed(2);
+  };
+  const original = Object.fromEntries(state.buckets.map((b) => [b.id, toInput(b.balance)]));
+  openSheet('Ajustar saldos', `
+    <form id="f">
+      <p class="muted">Escribe cuánto tienes realmente en cada bolsillo. Solo cambia lo que modifiques; no se reparte con porcentajes.</p>
+      ${state.buckets.map((b) => amountField(`s_${b.id}`, `${BUCKETS[b.id].icon} ${esc(b.name)}`, original[b.id])).join('')}
+      <p class="pct-total" id="sum"></p>
+      <button class="btn primary" type="submit">Guardar saldos</button>
+    </form>`, (sheet) => {
+    const f = $('#f', sheet);
+    const read = () => {
+      const deltas = {};
+      let total = 0;
+      for (const b of state.buckets) {
+        const raw = f[`s_${b.id}`].value.trim();
+        if (raw === original[b.id]) { total += b.balance; continue; }
+        const c = raw === '' ? 0 : parseAmount(raw, true);
+        if (c === null) return { error: `Revisa el saldo de "${b.name}"` };
+        if (c !== b.balance) deltas[`b:${b.id}`] = c - b.balance;
+        total += c;
+      }
+      return { deltas, total };
+    };
+    const upd = () => {
+      const r = read();
+      $('#sum', sheet).innerHTML = r.error ? '' : `<span>Total</span><span>${money(r.total)}</span>`;
+    };
+    f.addEventListener('input', upd);
+    upd();
+    f.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const r = read();
+      if (r.error) return toast(r.error);
+      if (!Object.keys(r.deltas).length) { closeSheet(); return toast('No cambiaste ningún saldo'); }
+      const amount = Object.values(r.deltas).reduce((a, v) => a + Math.abs(v), 0);
+      record('saldos', 'Saldos ajustados a mano', r.deltas, amount);
+      commit('Saldos guardados');
+    });
+  });
+}
+
 function sheetReconcile() {
   openSheet('Cuadrar con mi saldo real', `
     <form id="f">
-      <p class="muted">Escribe el saldo que te marca Revolut. La diferencia (rendimientos que no cuadren, comisiones, etc.) se ajusta en el bolsillo que elijas.</p>
+      <p class="muted">Escribe el saldo que te marca Revolut. Solo la <b>diferencia</b> se suma o resta en el bolsillo que elijas; los demás no se tocan.</p>
+      <p class="hint">Ej.: la app dice $5,882.17 y Revolut $5,890.00 → los $7.83 que faltan (normalmente rendimientos) se suman a Inversión.</p>
       <div class="row sub"><span>Total en tus bolsillos</span><strong class="num">${money(totalRevolut())}</strong></div>
       ${amountField('amount', 'Saldo real', '', { hint: '', hintId: 'diff' })}
       ${bucketSelect('bucket', 'Ajustar la diferencia en', 'inversion')}
@@ -1085,11 +1168,11 @@ const actions = {
     save();
     render();
   },
-  income: sheetIncome,
-  direct: sheetDirect,
+  add: sheetAdd,
   expense: sheetExpense,
   transfer: sheetTransfer,
   reconcile: sheetReconcile,
+  editBalances: sheetEditBalances,
   entry: (el) => sheetEntry(el.dataset.id),
   undo(el) {
     if (!confirm('¿Deshacer este movimiento? Los saldos vuelven a como estaban.')) return;

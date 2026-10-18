@@ -1,6 +1,6 @@
 // Service worker: guarda la app en el celular para que abra rápido y funcione sin internet.
 // Cuando cambies cualquier archivo de la app, sube el número de CACHE para que se actualice.
-const CACHE = 'mi-dinero-v3';
+const CACHE = 'mi-dinero-v5';
 const ASSETS = [
   './',
   './index.html',
